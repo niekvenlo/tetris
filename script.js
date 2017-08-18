@@ -3,25 +3,25 @@
 window.onload = function () {
   class Game {
     constructor () {
+      // Create canvas
       this.canvas = document.createElement('canvas')
       this.context = this.canvas.getContext('2d')
       this.canvas.height = window.innerHeight
       this.canvas.width = window.innerHeight / 18 * 10
       this.blockWidth = window.innerHeight / 18
       document.body.appendChild(this.canvas)
-
-      this.highestTetroIndex = 0
-      this.tetrominoSpawnPos = {x: 3, y: 0}
     }
     setup () {
       this.blocks = []
+      this.highestTetroIndex = 0
+      this.tetrominoSpawnPos = {x: 3, y: 0}
       this.tetroTypes = [
-        {type: 'I', x: [0, 1, 2, 3], y: [0, 0, 0, 0]},
-        {type: 'J', x: [0, 1, 2, 2], y: [0, 0, 0, 1]},
-        {type: 'L', x: [0, 1, 2, 0], y: [0, 0, 0, 1]},
+        {type: 'I', x: [1, 0, 2, 3], y: [0, 0, 0, 0]},
+        {type: 'J', x: [1, 0, 2, 2], y: [0, 0, 0, 1]},
+        {type: 'L', x: [1, 0, 2, 0], y: [0, 0, 0, 1]},
         {type: 'O', x: [1, 2, 1, 2], y: [0, 0, 1, 1]},
         {type: 'S', x: [1, 2, 0, 1], y: [0, 0, 1, 1]},
-        {type: 'T', x: [0, 1, 2, 1], y: [0, 0, 0, 1]},
+        {type: 'T', x: [1, 0, 2, 1], y: [0, 0, 0, 1]},
         {type: 'Z', x: [0, 1, 1, 2], y: [0, 0, 1, 1]}
       ]
       this.newTetromino()
@@ -36,6 +36,11 @@ window.onload = function () {
       // Decide where blocks are going to go
     }
     paint () {
+      this.blocks.sort((a, b) => {
+        // Sorts the blocks, so that top-left most blocks are painted first
+        // Prevents overlapping shadows
+        return (10 * a.realPos.x + a.realPos.y) - (10 * b.realPos.x + b.realPos.y)
+      })
       this.blocks.forEach(block => {
         let {x, y} = block.realPos
         let b = this.blockWidth
@@ -99,7 +104,38 @@ window.onload = function () {
       }
     }
     rotateLeft () {
-
+      let pivotX = this.blocks[0].realPos.x
+      let pivotY = this.blocks[0].realPos.y
+      let offsets = {
+        '-3,0': {x: 3, y: 3},
+        '-2,-1': {x: 1, y: 3},
+        '-2,0': {x: 2, y: 2},
+        '-2,1': {x: 1, y: 3},
+        '-1,-1': {x: 0, y: 2},
+        '-1,0': {x: 1, y: 1},
+        '-1,1': {x: 2, y: 0},
+        '0,-1': {x: -1, y: 1},
+        '0,-2': {x: -2, y: 2},
+        '0,-3': {x: -3, y: 3},
+        '0,0': {x: 0, y: 0},
+        '0,1': {x: 1, y: -1},
+        '1,-1': {x: -2, y: 0},
+        '1,-2': {x: -3, y: 1},
+        '1,0': {x: -1, y: -1},
+        '1,1': {x: 0, y: -2},
+        '1,2': {x: -1, y: -3},
+        '2,0': {x: -2, y: -2},
+        '2,1': {x: -1, y: -3},
+        '3,0': {x: -3, y: -3}
+      }
+      console.log('pivot', pivotX, pivotY)
+      this.blocks.forEach((block, idx) => {
+        let relativeX = block.realPos.x - pivotX
+        let relativeY = block.realPos.y - pivotY
+        let rel = [relativeX, relativeY].join(',')
+        block.realPos.x += offsets[rel].x
+        block.realPos.y += offsets[rel].y
+      })
     }
 
   }
