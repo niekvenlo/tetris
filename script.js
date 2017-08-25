@@ -23,11 +23,11 @@ window.onload = function () {
 
       this.createCanvas()
       document.addEventListener('keydown', this.keyHandler.bind(this), false)
-      this.timer = setInterval(this.tick.bind(this), 500)
+      this.timer = setInterval(this.tick.bind(this), 600)
     }
     tick () {
-      // Create a new Tetro when no blocks can move
-      if (this.allBlocks.every(block => !this.canMove(block))) {
+      // Create a new Tetro when no blocks can fall
+      if (this.allBlocks.every(block => !this.canMove({offset: {x: 0, y: 1}}))) {
         this.newTetro()
       }
       // Move the current Tetro down
@@ -63,15 +63,17 @@ window.onload = function () {
     }
     keyHandler (e) {
       switch (e.code) {
-        // rotateRight is currently unused
         case 'ArrowUp':
-          this.rotateLeft()
+          this.tetroRotate()
           break
         case 'ArrowLeft':
           this.tetroMove({x: -1, y: 0})
           break
         case 'ArrowRight':
           this.tetroMove({x: 1, y: 0})
+          break
+        case 'ArrowDown':
+          this.tetroMove({x: 0, y: 1})
           break
         default:
       }
@@ -104,7 +106,6 @@ window.onload = function () {
         this.context.fillStyle = block.type.color
         this.context.strokeRect(x * bWidth, y * bWidth, bWidth, bWidth)
         this.context.fillRect(x * bWidth, y * bWidth, bWidth, bWidth)
-        // console.log('block', block.index, block.pos)
       })
       // If timer is unset, the game is over
       if (!this.timer) {
@@ -120,59 +121,69 @@ window.onload = function () {
         )
       }
     }
-    rotateLeft () {
-      // TODO: This method should check whether rotation is legal,
-      // and either prevent rotation, or reverse rotation
-      this.allBlocks
-        .filter(block => block.index === this.tetroIndex)
-        .forEach(block => block.rotateLeft())
-    }
-    rotateRight () {
-      // TODO: This method should be merged with rotateLeft
-      this.allBlocks
-        .filter(block => block.index === this.tetroIndex)
-        .forEach(block => block.rotateRight())
+    tetroRotate () { // Left
+      let canRotate = this.canMove({rotate: true})
+      if (!canRotate) return false
+
+      this.currentTetro
+        .forEach(block => {
+          let offset = this.findRotateOffset(block)
+          block.pos.x += offset.x
+          block.pos.y += offset.y
+        })
     }
     tetroMove (offset) {
       // Move all blocks in Tetro if they can move in the given direction
-      let blocks = this.allBlocks.filter(block => block.index === this.tetroIndex)
-      if (blocks.every(block => this.canMove(block, offset))) {
-        blocks.forEach(block => {
-          block.pos.x += offset.x
-          block.pivot.x += offset.x
-          block.pos.y += offset.y
-          block.pivot.y += offset.y
+      if (!this.canMove({offset})) return false
+      this.currentTetro.forEach(block => {
+        block.pos.x += offset.x
+        block.pivot.x += offset.x
+        block.pos.y += offset.y
+        block.pivot.y += offset.y
+      })
+    }
+    canMove ({offset = null, rotate = false}) {
+      // Return true if current tetro can move
+      // If no offset is given, rotation is assumed
+      return this.currentTetro.every(block => {
+        if (rotate) {
+          offset = this.findRotateOffset(block)
+        }
+         // Find blocking blocks
+        let blockingBlock = this.findBlock({
+          pos: block.pos,
+          excludeIndex: this.tetroIndex,
+          offset
         })
+        // Check for bottom
+        let atBottom = (block.pos.y + offset.y) > this.board.height - 1
+         // Check for sides
+        let atLeftSide = block.pos.x + offset.x < 0
+        let atRightSide = block.pos.x + offset.x > this.board.width - 1
+        return !(!!blockingBlock || atBottom || atLeftSide || atRightSide)
+      })
+    }
+    findRotateOffset (block) { // Left
+      let rel = {
+        x: block.pivot.x - block.pos.x,
+        y: block.pivot.y - block.pos.y
       }
-    }
-    canMove (block, offset = {x: 0, y: 1}) {
-      // Return true is block can move (down, by default)
-      let tetroIndex = block.index
-      return !this.allBlocks
-        .filter(block => block.index === tetroIndex) // Find connected blocks
-        .some(block => {
-          let blockingBlock = this.findBlock({ // Find blocking blocks
-            pos: block.pos,
-            excludeIndex: tetroIndex,
-            offset
-          })
-          let atBottom = block.pos.y >= this.board.height - 1 // Check for bottom
-          let atLeftSide = block.pos.x + offset.x < 0 // Check for sides
-          let atRightSide = block.pos.x + offset.x > this.board.width - 1
-          return blockingBlock || atBottom || atLeftSide || atRightSide
-        })
-    }
-    canRotate (block, direction) {
-      // TODO: Build. Check whether a block can rotate in the given direction
+      let offset = {
+        x: rel.x + rel.y,
+        y: rel.y - rel.x
+      }
+      return offset
     }
     findBlock ({pos, offset = {x: 0, y: 0}, excludeIndex = null}) {
-      console.assert(typeof pos.x === 'number')
       return this.allBlocks.find(block => {
         return (
           (block.pos.x === pos.x + offset.x) &&
           (block.pos.y === pos.y + offset.y) &&
           (block.index !== excludeIndex))
       })
+    }
+    get currentTetro () {
+      return this.allBlocks.filter(block => block.index === this.tetroIndex)
     }
     get getRandomTetroType () {
       let types = Object.keys(this.tetroTypes)
@@ -187,25 +198,6 @@ window.onload = function () {
       this.pivot = pivot
       this.type = type
       this.index = index
-    }
-    rotateLeft () {
-      let rel = {
-        x: this.pos.x - this.pivot.x,
-        y: this.pos.y - this.pivot.y
-      }
-      let offset = {
-        x: rel.x + rel.y, // Rotate left
-        y: rel.y - rel.x
-        // x: rel.x - rel.y, // Rotate right
-        // y: rel.x + rel.y
-      }
-      this.pos.x -= offset.x
-      this.pos.y -= offset.y
-    }
-    rotateRight () {
-      this.rotateLeft()
-      this.rotateLeft()
-      this.rotateLeft()
     }
   }
 
